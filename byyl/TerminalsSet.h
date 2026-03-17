@@ -3,6 +3,7 @@
 #include <vector>
 #include <string>
 #include <algorithm>
+#include <initializer_list>
 #include "Terminal.h"
 
 // TerminalsSet，用于管理终结符数组
@@ -10,6 +11,7 @@ class TerminalsSet
 {
 public:
     TerminalsSet() = default;
+    TerminalsSet(std::initializer_list<Terminal> inTerminals) :terminals(inTerminals) {};
 
     // 添加终结符
     void add(const Terminal &t);

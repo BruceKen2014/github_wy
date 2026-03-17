@@ -10,6 +10,15 @@ bool ProductionRightItem::operator==(const ProductionRightItem& other) const
         return noTerminal == other.noTerminal;
 }
 
+bool ProductionRightItem::operator<(const ProductionRightItem& other) const
+{
+    if (type != other.type)
+        return type < other.type;
+    if (type == ProductionRightItemType::terminal)
+        return terminal < other.terminal;
+    return noTerminal < other.noTerminal;
+}
+
 const std::string& ProductionRightItem::getFormatString() const
 {
     if (type == ProductionRightItemType::terminal)

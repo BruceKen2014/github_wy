@@ -5,21 +5,27 @@
 
 #include "Production.h"
 #include "ProductionSet.h"
+using T = Terminal;
+using NT = NoTerminal;
 int main()
 {
 	ProductionSet ps;
-	ps.add(Production(NoTerminal("S"), ProductionRight({ NoTerminal("C") })));
-	ps.add(Production(NoTerminal("A"), ProductionRight({ NoTerminal("N"), Terminal("a"), Terminal("b") })));
-	ps.add(Production(NoTerminal("A"), ProductionRight({ Terminal("e"), NoTerminal("N"), Terminal("a"), Terminal("b") })));
-	ps.add(Production(NoTerminal("C"), ProductionRight()));
-	ps.add(Production(NoTerminal("N"), ProductionRight({ Terminal("c") , Terminal("d") })));
-	ps.calculate_nullable();
-	ps.calculate_firstSet();
-	ps.print_all_firstSet();
-	//ps.print_nullable();
-	//ps.print_all_noTerminals();
-	//ps.print_all_terminals();
 
+	
+	ps.add(Production(NoTerminal("Z"), ProductionRight({ Terminal("d") })));
+	ps.add(Production(NoTerminal("Z"), ProductionRight({ NoTerminal("X"), NoTerminal("Y"), NoTerminal("Z") })));
+	ps.add(Production(NoTerminal("Y"), ProductionRight({ Terminal("c") })));
+	ps.add(Production(NoTerminal("Y"), ProductionRight()));
+	ps.add(Production(NoTerminal("X"), ProductionRight({ NoTerminal("Y") })));
+	ps.add(Production(NoTerminal("X"), ProductionRight({ Terminal("a")})));
+	
+
+	ps.build_LL1_table();
+	ps.print();
+	ps.print_LL1_table();
+	ps.print_all_followSet();
+	ps.print_all_noTerminals();
+	ps.print_all_terminals();
     std::cout << "Hello World!\n";
 }
 
