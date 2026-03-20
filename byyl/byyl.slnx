@@ -3,5 +3,6 @@
     <Platform Name="x64" />
     <Platform Name="x86" />
   </Configurations>
-  <Project Path="byyl.vcxproj" Id="ffccdfe9-1802-43c5-96be-edec62f8ad26" />
+  <Project Path="LL1/byyl.vcxproj" Id="ffccdfe9-1802-43c5-96be-edec62f8ad26" />
+  <Project Path="LR0/LR0.vcxproj" Id="99032816-716b-4b3c-a1dd-b7c61132cab0" />
 </Solution>
