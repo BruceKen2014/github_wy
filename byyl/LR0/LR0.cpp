@@ -5,29 +5,29 @@
 
 #include "Production.h"
 #include "ProductionSet.h"
+#include "LR0Table.h"
 using T = Terminal;
 using NT = NoTerminal;
 int main()
 {
 	cout << "Hello World LR0!\n";
+	Production p1(NoTerminal("S'"), ProductionRight({ NoTerminal("S"), Terminal("$") }));
+	Production p2(NoTerminal("S"), ProductionRight({ Terminal("x"), Terminal("x"), NoTerminal("T") }));
+	Production p3(NoTerminal("T"), ProductionRight({ Terminal("y")}));
+
+
 	ProductionSet ps;
+	ps.add(p1);
+	ps.add(p2);
+	ps.add(p3);
+	LR0Table lr0Table;
+	lr0Table.build_LR0_table(ps);
+	lr0Table.print();
 
-	
-	ps.add(Production(NoTerminal("Z"), ProductionRight({ Terminal("d") })));
-	ps.add(Production(NoTerminal("Z"), ProductionRight({ NoTerminal("X"), NoTerminal("Y"), NoTerminal("Z") })));
-	ps.add(Production(NoTerminal("Y"), ProductionRight({ Terminal("c") })));
-	ps.add(Production(NoTerminal("Y"), ProductionRight()));
-	ps.add(Production(NoTerminal("X"), ProductionRight({ NoTerminal("Y") })));
-	ps.add(Production(NoTerminal("X"), ProductionRight({ Terminal("a")})));
-	
-
-	ps.build_LL1_table();
-	ps.print();
-	ps.print_LL1_table();
-	ps.print_all_followSet();
-	ps.print_all_noTerminals();
-	ps.print_all_terminals();
-    std::cout << "Hello World!\n";
+	vector<Terminal> tokens{ Terminal("x"), Terminal("x"), Terminal("x"), Terminal("x"), Terminal("x"), Terminal("y") ,Terminal("$") };
+	lr0Table.validate_tokens(tokens);
+	vector<Terminal> tokens2{ Terminal("x"), Terminal("x"), Terminal("y") ,Terminal("$") };
+	lr0Table.validate_tokens(tokens2);
 	return 0;
 
 }

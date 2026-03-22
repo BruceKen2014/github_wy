@@ -2,14 +2,12 @@
 
 void Production::print() const
 {
-    std::cout << no_terminal.getFormatString() << " -> ";
-    std::cout << right.getFormatString() << " ";
-    std::cout << std::endl;
+    std::cout << getFormatString();
 }
 
 std::string Production::getFormatString() const
 {
-    std::string result = no_terminal.getFormatString() + " -> " + right.getFormatString();
+    std::string result = no_terminal.getFormatString() + " -> " + right.getFormatString() + "\n";
     return result;
 }
 

@@ -20,8 +20,8 @@ public:
 		return right == other.right;
 	}
 
-    void print() const;
-	std::string getFormatString() const;
+    virtual void print() const;
+	virtual std::string getFormatString() const;
 	NoTerminal left() const;
 
 	int right_size() const;

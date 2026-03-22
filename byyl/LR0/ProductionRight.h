@@ -45,6 +45,7 @@ public:
 		if (items.size() != other.items.size()) return items.size() < other.items.size();
 		return std::lexicographical_compare(items.begin(), items.end(), other.items.begin(), other.items.end());
 	}
+	const ProductionRightItem& at(int index) const { return items.at(index); }
 	//右部的item数量
 	int count()const { return items.size(); }
     const std::string getFormatString() const;

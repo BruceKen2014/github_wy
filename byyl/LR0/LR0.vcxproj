@@ -136,8 +136,10 @@
     <ClCompile Include="TerminalsSet.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="LR0State.h" />
     <ClInclude Include="LR0Table.h" />
     <ClInclude Include="ProductionRight.h" />
+    <ClInclude Include="StateProduction.h" />
     <ClInclude Include="TerminalsSet.h" />
     <ClInclude Include="NoTerminal.h" />
     <ClInclude Include="Production.h" />
