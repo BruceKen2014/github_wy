@@ -21,7 +21,7 @@ public:
         states.clear();
     }
 
-    bool add_state(const LR0State& state)
+    bool add_state(const LR1State& state)
     { 	
         if (contains_state(state))
             return false;
@@ -29,7 +29,7 @@ public:
         return true;
 	}
 
-    const LR0State& get_state(int id) const
+    const LR1State& get_state(int id) const
     {
         for (const auto& state : states)
         {
@@ -37,7 +37,7 @@ public:
                 return state;
         }
 	}
-    LR0State& get_state(int id)
+    LR1State& get_state(int id)
     {
         for (auto& state : states)
         {
@@ -47,11 +47,11 @@ public:
         cout << "error " << endl;
     }
 
-    bool contains_state(const LR0State& state) const
+    bool contains_state(const LR1State& state) const
 	{
 		return std::find(states.begin(), states.end(), state) != states.end();
 	}
-    int get_state_id(const LR0State& inState) const
+    int get_state_id(const LR1State& inState) const
     {
         for (const auto& state : states)
         {
@@ -75,11 +75,14 @@ public:
 		cout << getFormatString();
     }
 
-    void build_LR0_table(const ProductionSet& productionSet);
+    void build_LR0_table(const ProductionSet& inProductionSet);
+
+    void build_SLR_table(const ProductionSet& inProductionSet);
+    void build_LR1_table(const ProductionSet& inProductionSet);
 
     bool validate_tokens(const std::vector<Terminal>& tokens);
 
 public:
     ProductionSet productionSet;
-	vector<LR0State> states;
+	vector<LR1State> states;
 };

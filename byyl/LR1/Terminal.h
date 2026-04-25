@@ -6,8 +6,10 @@
 class Terminal
 {
 public:
+	static const Terminal END; // 定义一个特殊的终结符，表示输入结束
+public:
 	Terminal() = default;
-	Terminal(const std::string &inName) : name(inName) {}
+	constexpr Terminal(const std::string &inName) : name(inName) {}
 
 	bool operator==(const Terminal &other) const { return name == other.name; }
 	bool operator<(const Terminal &other) const { return name < other.name; }

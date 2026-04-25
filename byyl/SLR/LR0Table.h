@@ -75,7 +75,9 @@ public:
 		cout << getFormatString();
     }
 
-    void build_LR0_table(const ProductionSet& productionSet);
+    void build_LR0_table(const ProductionSet& inProductionSet);
+
+	void build_SLR_table(const ProductionSet& inProductionSet);
 
     bool validate_tokens(const std::vector<Terminal>& tokens);
 

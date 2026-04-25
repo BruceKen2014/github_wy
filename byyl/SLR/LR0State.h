@@ -67,6 +67,37 @@ public:
     {
         std::cout << getFormatString();
     }
+	// 判断状态中是否存在可以规约的产生式
+    bool can_reduce() const
+    {
+        for (const auto& prod : productions)
+        {
+            if (prod.can_reduce())
+                return true;
+        }
+        return false;
+	}
+	// 获取状态中所有可以规约的产生式ID
+    std::vector<int> get_reduce_production_ids() const
+    {
+        std::vector<int> reduce_ids;
+        for (size_t i = 0; i < productions.size(); ++i)
+        {
+            if (productions[i].can_reduce())
+                reduce_ids.push_back(i);
+        }
+        return reduce_ids;
+	}
+	// 判断状态中是否存在可以移进给定终结符的产生式
+	bool can_shift(const Terminal& terminal) const
+    {
+        for (const auto& prod : productions)
+        {
+            if (prod.dotPos < prod.right.count() && prod.right.at(prod.dotPos).is_terminal() && prod.right.at(prod.dotPos).terminal == terminal)
+                return true;
+        }
+        return false;
+    }
 
 
 public:

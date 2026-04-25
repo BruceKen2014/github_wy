@@ -1,0 +1,1156 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>星际猎人：多彩陨石 | 独立开火重构版</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            user-select: none;
+        }
+
+        body {
+            background: linear-gradient(145deg, #010005 0%, #0a0a1a 100%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-family: 'Segoe UI', 'Orbitron', 'Courier New', monospace;
+            overflow: hidden;
+        }
+
+        .game-container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 12px;
+            padding: 20px;
+            border-radius: 48px;
+            background: rgba(0, 0, 0, 0.5);
+            box-shadow: 0 20px 35px rgba(0, 0, 0, 0.6), inset 0 1px 0 rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(3px);
+        }
+
+        canvas {
+            display: block;
+            margin: 0 auto;
+            border-radius: 28px;
+            box-shadow: 0 0 0 3px rgba(0, 255, 255, 0.3), 0 20px 30px rgba(0, 0, 0, 0.7);
+            cursor: none;
+        }
+
+        .info-panel {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            width: 100%;
+            gap: 30px;
+            background: rgba(5, 15, 25, 0.8);
+            backdrop-filter: blur(10px);
+            padding: 8px 24px;
+            border-radius: 60px;
+            border: 1px solid rgba(255, 200, 80, 0.6);
+            flex-wrap: wrap;
+        }
+
+        .score-box, .best-box, .kill-box {
+            font-size: 22px;
+            font-weight: bold;
+            letter-spacing: 2px;
+        }
+        .score-box span, .best-box span, .kill-box span {
+            background: linear-gradient(135deg, #fff5c4, #ffcc66);
+            -webkit-background-clip: text;
+            background-clip: text;
+            color: #ffdd99;
+            text-shadow: 0 0 6px #ffaa33;
+        }
+        .score-box { color: #aaffdd; }
+        .best-box { color: #ffaa88; }
+        .kill-box { color: #88ffaa; }
+
+        button {
+            background: radial-gradient(circle at 30% 10%, #ffaa44, #ff6600);
+            border: none;
+            font-family: 'Orbitron', monospace;
+            font-weight: bold;
+            font-size: 18px;
+            padding: 5px 22px;
+            border-radius: 40px;
+            color: #1f1a0c;
+            cursor: pointer;
+            transition: 0.1s linear;
+            box-shadow: 0 4px 0 #7a3e00;
+        }
+        button:active { transform: translateY(2px); box-shadow: 0 1px 0 #7a3e00; }
+
+        .tips {
+            color: #bbddff;
+            font-size: 13px;
+            background: #000000aa;
+            padding: 5px 15px;
+            border-radius: 40px;
+        }
+        .tips kbd {
+            background: #2a2a3a;
+            padding: 2px 8px;
+            border-radius: 30px;
+            color: #ffdd88;
+            margin: 0 4px;
+        }
+        .audio-hint {
+            background: #ffaa33aa;
+            padding: 4px 12px;
+            border-radius: 60px;
+            font-size: 13px;
+            font-weight: bold;
+            color: #ffffbb;
+            backdrop-filter: blur(4px);
+            animation: pulse 1.2s infinite;
+        }
+        @keyframes pulse {
+            0% { opacity: 0.6; text-shadow: 0 0 0px gold;}
+            100% { opacity: 1; text-shadow: 0 0 5px orange;}
+        }
+        .toast-msg {
+            position: fixed;
+            bottom: 28%;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(0,0,0,0.85);
+            backdrop-filter: blur(12px);
+            color: #ffaa66;
+            font-size: 24px;
+            font-weight: bold;
+            padding: 12px 28px;
+            border-radius: 60px;
+            border-left: 6px solid #ff5500;
+            border-right: 6px solid #ffaa00;
+            font-family: monospace;
+            letter-spacing: 2px;
+            pointer-events: none;
+            z-index: 100;
+            white-space: nowrap;
+            box-shadow: 0 0 20px rgba(255,80,0,0.5);
+            transition: opacity 0.2s;
+        }
+        .color-badge {
+            background: #1a1a2ecc;
+            padding: 4px 12px;
+            border-radius: 40px;
+            font-size: 12px;
+            font-family: monospace;
+            color: #ffcc88;
+        }
+    </style>
+</head>
+<body>
+<div>
+    <div class="game-container">
+        <canvas id="gameCanvas" width="900" height="650"></canvas>
+        <div class="info-panel">
+            <div class="score-box">✨ 积分 ✨ <span id="scoreValue">0</span></div>
+            <div class="kill-box">💥 击毁数 💥 <span id="killCount">0</span></div>
+            <div class="best-box">🏆 最高记录 🏆 <span id="bestValue">0</span></div>
+            <button id="restartButton">🚀 重新起飞 🚀</button>
+            <div class="audio-hint" id="audioHint">🎵 点击画面 / 按键 → 激活MP3背景音乐</div>
+        </div>
+        <div class="tips">
+            🎮 <kbd>←</kbd> <kbd>→</kbd> 移动 &nbsp;&nbsp;|&nbsp;&nbsp; 🔫 <kbd>按住空格</kbd> 连射 (追踪子弹) &nbsp;&nbsp;|&nbsp;&nbsp; 🎨 <kbd>1</kbd>~<kbd>9</kbd> 切换陨石颜色
+        </div>
+        <div class="color-badge" id="colorBadge">🎨 当前配色: 默认岩灰(1)</div>
+    </div>
+    <div id="toastMessage" style="display: none;" class="toast-msg"></div>
+    <audio id="bgmAudio" loop preload="auto" style="display: none;">
+        <source src="music.mp3" type="audio/mpeg">
+    </audio>
+</div>
+
+<script>
+    // ======================= 游戏参数配置 =======================
+    const CONFIG = {
+        canvasWidth: 900,
+        canvasHeight: 650,
+        playerRadius: 14,
+        playerSpeed: 7.0,
+        playerYOffset: 58,
+        bulletRadius: 5,
+        bulletSpeed: 9.5,
+        shootDelayFrames: 12,      // 发射间隔帧数（约0.2秒）
+        bulletTurnSpeed: 0.18,
+        baseObstacleSpeed: 3.4,
+        obstacleTrackingStrengthBase: 0.018,
+        maxObstacleTrackSpeed: 3.2,
+        speedIncreasePer18Score: 0.48,
+        maxGlobalSpeed: 6.2,
+        spawnBaseDelay: 52,
+        spawnDelayReducePer12Score: 12,
+        minSpawnDelay: 20,
+        maxSpawnDelay: 46,
+        spawnRandomRange: 6,
+        scorePerEvade: 1,
+        crashPenalty: 10,
+        invincibleDuration: 55,
+        starCount: 150,
+        cloudCount: 10,
+        engineParticleRate: 2,
+        bgmVolume: 0.42,
+        engineVolume: 0.12,
+        shootVolume: 0.2,
+        explosionVolume: 0.4,
+        crashVolume: 0.35,
+        asteroidTypes: {
+            normal: {
+                baseRadius: 10,
+                radiusRange: 5,
+                durability: 1,
+                scoreReward: 5,
+                colorTint: [0.95, 0.85, 0.75],
+                spawnWeight: 60
+            },
+            advanced: {
+                baseRadius: 14,
+                radiusRange: 6,
+                durability: 3,
+                scoreReward: 15,
+                colorTint: [0.85, 0.75, 0.65],
+                spawnWeight: 30
+            },
+            giant: {
+                baseRadius: 24,
+                radiusRange: 8,
+                durability: 5,
+                scoreReward: 40,
+                colorTint: [0.75, 0.65, 0.55],
+                spawnWeight: 10
+            }
+        }
+    };
+    
+    // 颜色预设表 (9种，对应数字键1-9)
+    const COLOR_PRESETS = [
+        { name: "默认岩灰", normal: [0.95,0.85,0.75], advanced: [0.85,0.75,0.65], giant: [0.75,0.65,0.55] },
+        { name: "赤红热岩", normal: [1.0,0.6,0.5], advanced: [0.9,0.5,0.4], giant: [0.8,0.4,0.3] },
+        { name: "冰蓝晶石", normal: [0.6,0.8,1.0], advanced: [0.5,0.7,0.9], giant: [0.4,0.6,0.8] },
+        { name: "翡翠绿", normal: [0.5,0.9,0.6], advanced: [0.4,0.8,0.5], giant: [0.3,0.7,0.4] },
+        { name: "紫罗兰", normal: [0.8,0.5,1.0], advanced: [0.7,0.4,0.9], giant: [0.6,0.3,0.8] },
+        { name: "黄金陨", normal: [1.0,0.9,0.4], advanced: [0.9,0.8,0.3], giant: [0.8,0.7,0.2] },
+        { name: "暗影墨", normal: [0.5,0.5,0.5], advanced: [0.4,0.4,0.4], giant: [0.3,0.3,0.3] },
+        { name: "珊瑚橙", normal: [1.0,0.7,0.5], advanced: [0.9,0.6,0.4], giant: [0.8,0.5,0.3] },
+        { name: "青空银", normal: [0.7,0.85,1.0], advanced: [0.6,0.75,0.9], giant: [0.5,0.65,0.8] }
+    ];
+    
+    // 常量
+    const CW = CONFIG.canvasWidth;
+    const CH = CONFIG.canvasHeight;
+    const PLAYER_RADIUS = CONFIG.playerRadius;
+    const PLAYER_SPEED = CONFIG.playerSpeed;
+    const playerY = CH - CONFIG.playerYOffset;
+    const BULLET_RADIUS = CONFIG.bulletRadius;
+    const BULLET_SPEED_ABS = CONFIG.bulletSpeed;
+    const SHOOT_DELAY_FRAMES = CONFIG.shootDelayFrames;
+    const BULLET_TURN_SPEED = CONFIG.bulletTurnSpeed;
+    
+    // DOM
+    const canvas = document.getElementById('gameCanvas');
+    const ctx = canvas.getContext('2d');
+    canvas.width = CW; canvas.height = CH;
+    
+    // 游戏状态
+    let gameActive = true;
+    let score = 0;
+    let killCount = 0;
+    let bestScore = localStorage.getItem('starBestScore') ? parseInt(localStorage.getItem('starBestScore')) : 0;
+    document.getElementById('bestValue').innerText = bestScore;
+    
+    let playerX = CW/2;
+    let leftPressed = false, rightPressed = false;
+    let invincibleFrames = 0;
+    
+    let bullets = [];
+    let obstacles = [];
+    let shootCooldown = 0;
+    
+    // 发射请求标志 (由空格键设置，在游戏循环中处理)
+    let shootRequested = false;
+    
+    let currentGlobalSpeed = CONFIG.baseObstacleSpeed;
+    let spawnWaitFrames = 0;
+    
+    let stars = [];
+    let cloudLayers = [];
+    let particles = [];
+    const MAX_PARTICLES = 250;
+    
+    // 音频
+    let audioCtx = null;
+    let engineOsc = null, engineGain = null, engineFilter = null;
+    let isAudioActive = false;
+    let bgmInterval = null;
+    let bgmAudioElement = null;
+    
+    // 当前颜色预设索引 (0-8)
+    let currentColorIndex = 0;
+    
+    // ---------- 颜色切换函数 ----------
+    function applyColorPreset(index) {
+        const preset = COLOR_PRESETS[index % COLOR_PRESETS.length];
+        CONFIG.asteroidTypes.normal.colorTint = [...preset.normal];
+        CONFIG.asteroidTypes.advanced.colorTint = [...preset.advanced];
+        CONFIG.asteroidTypes.giant.colorTint = [...preset.giant];
+        document.getElementById('colorBadge').innerHTML = `🎨 当前配色: ${preset.name} (${index+1})`;
+        showMessage(`🎨 陨石颜色切换为「${preset.name}」`, 800);
+    }
+    
+    // ---------- 辅助函数 ----------
+    function updateScoreUI() {
+        document.getElementById('scoreValue').innerText = score;
+        document.getElementById('killCount').innerText = killCount;
+        if (score > bestScore) {
+            bestScore = score;
+            localStorage.setItem('starBestScore', bestScore);
+            document.getElementById('bestValue').innerText = bestScore;
+        }
+    }
+    
+    function showMessage(msg, duration = 1400) {
+        const toast = document.getElementById('toastMessage');
+        toast.innerText = msg;
+        toast.style.display = 'block';
+        toast.style.opacity = '1';
+        setTimeout(() => {
+            toast.style.opacity = '0';
+            setTimeout(() => toast.style.display = 'none', 300);
+        }, duration);
+    }
+    
+    function createExplosionEffect(x, y, count) {
+        const limitedCount = Math.min(count, 20);
+        for (let i = 0; i < limitedCount; i++) {
+            const angle = Math.random() * Math.PI * 2;
+            const speed = 1.5 + Math.random() * 5;
+            particles.push({
+                x, y,
+                vx: Math.cos(angle) * speed,
+                vy: Math.sin(angle) * speed - 1.5,
+                life: 0.8,
+                maxLife: 0.8,
+                size: 2 + Math.random() * 5,
+                color: `hsl(${20 + Math.random() * 40}, 90%, 60%)`
+            });
+        }
+        if (particles.length > MAX_PARTICLES) particles.splice(0, particles.length - MAX_PARTICLES);
+    }
+    
+    function addEngineParticles() {
+        if (!gameActive) return;
+        for (let i = 0; i < CONFIG.engineParticleRate + Math.random() * 1; i++) {
+            particles.push({
+                x: playerX + (Math.random() - 0.5) * 9,
+                y: playerY + 12,
+                vx: (Math.random() - 0.5) * 1.5,
+                vy: Math.random() * 2 + 1.5,
+                life: 0.55,
+                maxLife: 0.55,
+                size: 2 + Math.random() * 3,
+                color: `hsl(${30 + Math.random() * 20}, 100%, 65%)`
+            });
+        }
+        if (particles.length > MAX_PARTICLES) particles.splice(0, particles.length - MAX_PARTICLES);
+    }
+    
+    function calcGlobalSpeed() {
+        let spd = CONFIG.baseObstacleSpeed + Math.floor(score / 18) * CONFIG.speedIncreasePer18Score;
+        if (score > 120) spd += 0.7;
+        if (score > 240) spd += 0.8;
+        if (isNaN(spd) || spd < 2) spd = CONFIG.baseObstacleSpeed;
+        return Math.min(CONFIG.maxGlobalSpeed, spd);
+    }
+    
+    function getDynamicSpawnDelay() {
+        let delay = CONFIG.spawnBaseDelay - Math.floor(score / CONFIG.spawnDelayReducePer12Score);
+        delay = Math.min(CONFIG.maxSpawnDelay, Math.max(CONFIG.minSpawnDelay, delay));
+        if (isNaN(delay)) delay = CONFIG.minSpawnDelay;
+        return delay + (Math.random() * CONFIG.spawnRandomRange - CONFIG.spawnRandomRange / 2);
+    }
+    
+    function selectAsteroidType() {
+        const types = CONFIG.asteroidTypes;
+        const weights = {
+            normal: types.normal.spawnWeight,
+            advanced: types.advanced.spawnWeight,
+            giant: types.giant.spawnWeight
+        };
+        let total = weights.normal + weights.advanced + weights.giant;
+        let rand = Math.random() * total;
+        if (rand < weights.normal) return 'normal';
+        if (rand < weights.normal + weights.advanced) return 'advanced';
+        return 'giant';
+    }
+    
+    function spawnObstacle() {
+        const typeKey = selectAsteroidType();
+        const typeConf = CONFIG.asteroidTypes[typeKey];
+        const radius = typeConf.baseRadius + (Math.random() * typeConf.radiusRange - typeConf.radiusRange / 2);
+        const x = radius + Math.random() * (CW - radius * 2);
+        let trackStrength = CONFIG.obstacleTrackingStrengthBase + (Math.floor(score / 50) * 0.003);
+        trackStrength = Math.min(0.045, trackStrength);
+        obstacles.push({
+            x, y: -radius,
+            radius: radius,
+            durability: typeConf.durability,
+            maxDurability: typeConf.durability,
+            typeKey: typeKey,
+            rotation: Math.random() * Math.PI * 2,
+            rotSpeed: (Math.random() - 0.5) * 0.04,
+            trackStrength: trackStrength,
+            colorTint: typeConf.colorTint
+        });
+    }
+    
+    function handleCrash() {
+        if (invincibleFrames > 0) return;
+        score = Math.max(0, score - CONFIG.crashPenalty);
+        updateScoreUI();
+        playerX = CW / 2;
+        invincibleFrames = CONFIG.invincibleDuration;
+        showMessage("⚠️ 你的飞机撞到陨石了！ -10分 ⚠️", 1500);
+        playCrashSound();
+        createExplosionEffect(playerX, playerY, 22);
+    }
+    
+    // ---------- 音频实现 ----------
+    function initAudio() {
+        if (audioCtx) return;
+        audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        engineGain = audioCtx.createGain();
+        engineFilter = audioCtx.createBiquadFilter();
+        engineFilter.type = "lowpass";
+        engineFilter.frequency.value = 800;
+        engineGain.gain.value = 0.0;
+        engineGain.connect(engineFilter);
+        engineFilter.connect(audioCtx.destination);
+        startEngineSound();
+        playMP3Background();
+        startBackgroundMelody();
+        document.getElementById('audioHint').innerHTML = '🎧 MP3背景音乐 + 多彩陨石 🎧';
+        setTimeout(() => {
+            if (document.getElementById('audioHint')) document.getElementById('audioHint').style.opacity = '0.7';
+        }, 1500);
+    }
+    
+    function playMP3Background() {
+        bgmAudioElement = document.getElementById('bgmAudio');
+        if (bgmAudioElement) {
+            bgmAudioElement.volume = CONFIG.bgmVolume;
+            bgmAudioElement.loop = true;
+            bgmAudioElement.play().catch(e => console.warn("自动播放被阻止"));
+        }
+    }
+    
+    function resumeBackgroundMusic() {
+        if (bgmAudioElement && bgmAudioElement.paused) bgmAudioElement.play().catch(e => {});
+    }
+    
+    function startEngineSound() {
+        if (!audioCtx) return;
+        if (engineOsc) try { engineOsc.stop(); } catch (e) {}
+        engineOsc = audioCtx.createOscillator();
+        engineOsc.type = "sawtooth";
+        engineOsc.frequency.value = 75;
+        engineOsc.connect(engineGain);
+        engineOsc.start();
+        const bufferSize = 2048;
+        const noiseNode = audioCtx.createScriptProcessor(bufferSize, 1, 1);
+        noiseNode.onaudioprocess = function (e) {
+            if (!isAudioActive) return;
+            const output = e.outputBuffer.getChannelData(0);
+            for (let i = 0; i < bufferSize; i++) output[i] = (Math.random() - 0.5) * 0.12;
+        };
+        const noiseGain = audioCtx.createGain();
+        noiseGain.gain.value = 0.05;
+        noiseNode.connect(noiseGain);
+        noiseGain.connect(engineFilter);
+        engineOsc.noiseNode = noiseNode;
+    }
+    
+    function updateEngineSoundByMovement() {
+        if (!audioCtx || !isAudioActive || !engineOsc) return;
+        let targetFreq = 72;
+        if (leftPressed) targetFreq = 88;
+        if (rightPressed) targetFreq = 95;
+        if (leftPressed && rightPressed) targetFreq = 80;
+        try { engineOsc.frequency.linearRampToValueAtTime(targetFreq, audioCtx.currentTime + 0.05); } catch (e) {}
+        let vol = CONFIG.engineVolume + (currentGlobalSpeed - 3.2) * 0.015;
+        if (vol > 0.25) vol = 0.25;
+        engineGain.gain.linearRampToValueAtTime(vol, audioCtx.currentTime + 0.1);
+    }
+    
+    function startBackgroundMelody() {
+        if (bgmInterval) clearInterval(bgmInterval);
+        let step = 0;
+        const notes = [440, 523, 587, 440, 349, 523, 494, 440];
+        bgmInterval = setInterval(() => {
+            if (!audioCtx || !isAudioActive || !gameActive) return;
+            const now = audioCtx.currentTime;
+            const osc = audioCtx.createOscillator();
+            const gainNode = audioCtx.createGain();
+            osc.type = "sine";
+            let note = notes[step % notes.length];
+            if (score > 80) note = note * 1.12;
+            osc.frequency.value = note;
+            gainNode.gain.value = 0.04;
+            osc.connect(gainNode);
+            gainNode.connect(audioCtx.destination);
+            osc.start();
+            gainNode.gain.exponentialRampToValueAtTime(0.0001, now + 0.35);
+            osc.stop(now + 0.38);
+            step++;
+        }, 480);
+    }
+    
+    function playExplodeSound() {
+        if (!audioCtx || !isAudioActive) return;
+        const now = audioCtx.currentTime;
+        const oscLow = audioCtx.createOscillator();
+        const gainLow = audioCtx.createGain();
+        oscLow.type = "sine";
+        oscLow.frequency.value = 80;
+        oscLow.connect(gainLow);
+        gainLow.connect(audioCtx.destination);
+        gainLow.gain.value = CONFIG.explosionVolume;
+        oscLow.start();
+        gainLow.gain.exponentialRampToValueAtTime(0.0001, now + 0.3);
+        oscLow.stop(now + 0.3);
+        const noise = audioCtx.createBufferSource();
+        const buffer = audioCtx.createBuffer(1, 2048, audioCtx.sampleRate);
+        const data = buffer.getChannelData(0);
+        for (let i = 0; i < 2048; i++) data[i] = Math.random() * 2 - 1;
+        noise.buffer = buffer;
+        const noiseGain = audioCtx.createGain();
+        noiseGain.gain.value = 0.45;
+        noise.connect(noiseGain);
+        noiseGain.connect(audioCtx.destination);
+        noise.start();
+        noiseGain.gain.exponentialRampToValueAtTime(0.0001, now + 0.25);
+        const oscHi = audioCtx.createOscillator();
+        const gainHi = audioCtx.createGain();
+        oscHi.type = "sawtooth";
+        oscHi.frequency.value = 900;
+        oscHi.connect(gainHi);
+        gainHi.connect(audioCtx.destination);
+        gainHi.gain.value = 0.2;
+        oscHi.start();
+        gainHi.gain.exponentialRampToValueAtTime(0.0001, now + 0.18);
+        oscHi.stop(now + 0.18);
+    }
+    
+    function playShootSound() {
+        if (!audioCtx || !isAudioActive) return;
+        const now = audioCtx.currentTime;
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.type = "triangle";
+        osc.frequency.value = 880;
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+        gain.gain.value = CONFIG.shootVolume;
+        osc.start();
+        gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.1);
+        osc.stop(now + 0.1);
+    }
+    
+    function playCrashSound() {
+        if (!audioCtx || !isAudioActive) return;
+        const now = audioCtx.currentTime;
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.type = "square";
+        osc.frequency.value = 150;
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+        gain.gain.value = CONFIG.crashVolume;
+        osc.start();
+        gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.2);
+        osc.stop(now + 0.2);
+        const noise = audioCtx.createBufferSource();
+        const buffer = audioCtx.createBuffer(1, 2048, audioCtx.sampleRate);
+        const data = buffer.getChannelData(0);
+        for (let i = 0; i < 2048; i++) data[i] = Math.random() * 2 - 1;
+        noise.buffer = buffer;
+        const noiseGain = audioCtx.createGain();
+        noiseGain.gain.value = 0.25;
+        noise.connect(noiseGain);
+        noiseGain.connect(audioCtx.destination);
+        noise.start();
+        noiseGain.gain.exponentialRampToValueAtTime(0.0001, now + 0.15);
+    }
+    
+    // 发射处理 (在游戏循环中调用)
+    function handleShootRequest() {
+        if (!gameActive) return;
+        if (!shootRequested) return;
+        if (shootCooldown > 0) return;
+        bullets.push({
+            x: playerX,
+            y: playerY - 12,
+            vx: 0,
+            vy: -BULLET_SPEED_ABS,
+        });
+        shootCooldown = SHOOT_DELAY_FRAMES;
+        playShootSound();
+    }
+    
+    // 子弹追踪 + 耐久削减
+    function updateBulletsAndDamage() {
+        for (let i = 0; i < bullets.length; i++) {
+            const bullet = bullets[i];
+            if (obstacles.length === 0) {
+                bullet.vx = 0;
+                bullet.vy = -BULLET_SPEED_ABS;
+                bullet.x += bullet.vx;
+                bullet.y += bullet.vy;
+                continue;
+            }
+            let closest = null;
+            let minDist = Infinity;
+            for (let obs of obstacles) {
+                const dx = obs.x - bullet.x;
+                const dy = obs.y - bullet.y;
+                const dist = dx * dx + dy * dy;
+                if (dist < minDist) {
+                    minDist = dist;
+                    closest = obs;
+                }
+            }
+            if (closest) {
+                let dx = closest.x - bullet.x;
+                let dy = closest.y - bullet.y;
+                let len = Math.hypot(dx, dy);
+                if (len > 0.01) {
+                    let targetDirX = dx / len;
+                    let targetDirY = dy / len;
+                    let curDirX = bullet.vx;
+                    let curDirY = bullet.vy;
+                    let curLen = Math.hypot(curDirX, curDirY);
+                    if (curLen > 0.01) {
+                        curDirX /= curLen;
+                        curDirY /= curLen;
+                    } else {
+                        curDirX = 0;
+                        curDirY = -1;
+                    }
+                    let dot = curDirX * targetDirX + curDirY * targetDirY;
+                    let angle = Math.acos(Math.min(1, Math.max(-1, dot)));
+                    let turnAngle = Math.min(angle, BULLET_TURN_SPEED);
+                    let cross = curDirX * targetDirY - curDirY * targetDirX;
+                    let sign = (cross > 0) ? 1 : -1;
+                    let newAngle = Math.atan2(curDirY, curDirX) + turnAngle * sign;
+                    let newDirX = Math.cos(newAngle);
+                    let newDirY = Math.sin(newAngle);
+                    bullet.vx = newDirX * BULLET_SPEED_ABS;
+                    bullet.vy = newDirY * BULLET_SPEED_ABS;
+                } else {
+                    bullet.vx = 0;
+                    bullet.vy = -BULLET_SPEED_ABS;
+                }
+            } else {
+                bullet.vx = 0;
+                bullet.vy = -BULLET_SPEED_ABS;
+            }
+            bullet.x += bullet.vx;
+            bullet.y += bullet.vy;
+        }
+        bullets = bullets.filter(b => b.y + BULLET_RADIUS > 0 && b.y - BULLET_RADIUS < CH && b.x + BULLET_RADIUS > 0 && b.x - BULLET_RADIUS < CW);
+        
+        for (let i = 0; i < bullets.length; i++) {
+            const bullet = bullets[i];
+            let hitIndex = -1;
+            for (let j = 0; j < obstacles.length; j++) {
+                const obs = obstacles[j];
+                const dx = bullet.x - obs.x;
+                const dy = bullet.y - obs.y;
+                if (dx * dx + dy * dy < (BULLET_RADIUS + obs.radius) ** 2) {
+                    hitIndex = j;
+                    break;
+                }
+            }
+            if (hitIndex !== -1) {
+                const obs = obstacles[hitIndex];
+                obs.durability--;
+                bullets.splice(i, 1);
+                i--;
+                for (let p = 0; p < 3; p++) {
+                    particles.push({
+                        x: bullet.x, y: bullet.y,
+                        vx: (Math.random() - 0.5) * 2,
+                        vy: (Math.random() - 0.5) * 2 - 1,
+                        life: 0.3,
+                        maxLife: 0.3,
+                        size: 1 + Math.random() * 2,
+                        color: `hsl(${40 + Math.random() * 30}, 100%, 60%)`
+                    });
+                }
+                if (obs.durability <= 0) {
+                    const reward = CONFIG.asteroidTypes[obs.typeKey].scoreReward;
+                    score += reward;
+                    killCount++;
+                    updateScoreUI();
+                    createExplosionEffect(obs.x, obs.y, 20);
+                    playExplodeSound();
+                    obstacles.splice(hitIndex, 1);
+                }
+            }
+        }
+        if (particles.length > MAX_PARTICLES) particles.splice(0, particles.length - MAX_PARTICLES);
+    }
+    
+    function updateObstaclesMovement() {
+        if (!gameActive) return;
+        for (let obs of obstacles) {
+            obs.y += currentGlobalSpeed;
+            let dx = playerX - obs.x;
+            let moveX = dx * obs.trackStrength;
+            if (moveX > CONFIG.maxObstacleTrackSpeed) moveX = CONFIG.maxObstacleTrackSpeed;
+            if (moveX < -CONFIG.maxObstacleTrackSpeed) moveX = -CONFIG.maxObstacleTrackSpeed;
+            obs.x += moveX;
+            obs.x = Math.min(Math.max(obs.x, obs.radius + 5), CW - obs.radius - 5);
+            obs.rotation += obs.rotSpeed;
+        }
+        for (let obs of obstacles) {
+            const dx = playerX - obs.x;
+            const dy = playerY - obs.y;
+            if (dx * dx + dy * dy < (PLAYER_RADIUS + obs.radius) ** 2) {
+                if (invincibleFrames <= 0) {
+                    handleCrash();
+                    break;
+                }
+            }
+        }
+        let newObs = [];
+        for (let obs of obstacles) {
+            if (obs.y + obs.radius < CH) {
+                newObs.push(obs);
+            } else {
+                score += CONFIG.scorePerEvade;
+                updateScoreUI();
+                for (let p = 0; p < 3; p++) {
+                    particles.push({
+                        x: obs.x + (Math.random() - 0.5) * obs.radius,
+                        y: CH - 8,
+                        vx: (Math.random() - 0.5) * 2,
+                        vy: -Math.random() * 3 - 1,
+                        life: 0.6,
+                        maxLife: 0.6,
+                        size: 2 + Math.random() * 3,
+                        color: `hsl(${55 + Math.random() * 30}, 95%, 65%)`
+                    });
+                }
+            }
+        }
+        obstacles = newObs;
+        currentGlobalSpeed = calcGlobalSpeed();
+        if (particles.length > MAX_PARTICLES) particles.splice(0, particles.length - MAX_PARTICLES);
+    }
+    
+    function updateSpawner() {
+        if (!gameActive) return;
+        if (spawnWaitFrames <= 0) {
+            spawnObstacle();
+            spawnWaitFrames = getDynamicSpawnDelay();
+        } else {
+            spawnWaitFrames--;
+        }
+    }
+    
+    function updateShootCooldown() {
+        if (shootCooldown > 0) shootCooldown--;
+    }
+    
+    // 背景
+    function updateScenery() {
+        for (let s of stars) {
+            s.y += s.speedY;
+            if (s.y > CH + 10) { s.y = -10; s.x = Math.random() * CW; }
+        }
+        for (let cloud of cloudLayers) {
+            cloud.y += cloud.speedY;
+            if (cloud.y > CH + 120) { cloud.y = -80; cloud.x = Math.random() * CW; }
+        }
+    }
+    
+    function updateParticles() {
+        for (let i = 0; i < particles.length; i++) {
+            particles[i].x += particles[i].vx;
+            particles[i].y += particles[i].vy;
+            particles[i].life -= 0.025;
+            if (particles[i].life <= 0 || particles[i].y > CH + 50 || particles[i].x < -50 || particles[i].x > CW + 50) {
+                particles.splice(i, 1);
+                i--;
+            }
+        }
+    }
+    
+    function updatePlayerMovement() {
+        if (!gameActive) return;
+        let newX = playerX;
+        if (leftPressed) newX -= PLAYER_SPEED;
+        if (rightPressed) newX += PLAYER_SPEED;
+        newX = Math.min(Math.max(newX, PLAYER_RADIUS + 5), CW - PLAYER_RADIUS - 5);
+        playerX = newX;
+    }
+    
+    // 真实陨石绘制
+    function drawRealisticAsteroid(obs) {
+        const x = obs.x, y = obs.y, r = obs.radius;
+        const rot = obs.rotation;
+        const tint = obs.colorTint;
+        const grad = ctx.createRadialGradient(x - r * 0.3, y - r * 0.3, r * 0.2, x, y, r);
+        grad.addColorStop(0, `rgb(${180 + 50 * tint[0]}, ${160 + 40 * tint[1]}, ${130 + 30 * tint[2]})`);
+        grad.addColorStop(0.6, `rgb(${140 + 40 * tint[0]}, ${120 + 30 * tint[1]}, ${95 + 25 * tint[2]})`);
+        grad.addColorStop(1, `rgb(${100 + 30 * tint[0]}, ${85 + 20 * tint[1]}, ${65 + 15 * tint[2]})`);
+        ctx.fillStyle = grad;
+        ctx.shadowBlur = 8;
+        ctx.shadowColor = "rgba(0,0,0,0.3)";
+        ctx.beginPath();
+        ctx.ellipse(x, y, r, r * 0.9, rot, 0, Math.PI * 2);
+        ctx.fill();
+        const speckCount = Math.min(20, Math.floor(r * 1.2));
+        for (let i = 0; i < speckCount; i++) {
+            const angle = Math.random() * Math.PI * 2;
+            const rad = Math.random() * r * 0.8;
+            const xOff = Math.cos(angle) * rad;
+            const yOff = Math.sin(angle) * rad * 0.9;
+            ctx.beginPath();
+            ctx.arc(x + xOff, y + yOff, Math.random() * 2 + 0.8, 0, Math.PI * 2);
+            ctx.fillStyle = `rgba(60,45,35,0.4)`;
+            ctx.fill();
+        }
+        const crackCount = Math.min(6, 2 + Math.floor((1 - obs.durability / obs.maxDurability) * 5));
+        for (let i = 0; i < crackCount; i++) {
+            const angle = Math.random() * Math.PI * 2;
+            const rad = r * 0.6;
+            const x1 = x + Math.cos(angle) * rad;
+            const y1 = y + Math.sin(angle) * rad * 0.9;
+            const x2 = x + Math.cos(angle + 0.5) * (rad * 0.7);
+            const y2 = y + Math.sin(angle + 0.5) * (rad * 0.7) * 0.9;
+            ctx.beginPath();
+            ctx.moveTo(x1, y1);
+            ctx.lineTo(x2, y2);
+            ctx.lineWidth = 1.8;
+            ctx.strokeStyle = `rgba(30,20,15,0.7)`;
+            ctx.stroke();
+        }
+        ctx.beginPath();
+        ctx.ellipse(x - r * 0.2, y - r * 0.2, r * 0.2, r * 0.15, 0, 0, Math.PI * 2);
+        ctx.fillStyle = `rgba(230,210,180,0.35)`;
+        ctx.fill();
+        if (obs.durability < obs.maxDurability) {
+            const barWidth = r * 1.2;
+            const barHeight = 4;
+            const barX = x - barWidth / 2;
+            const barY = y - r - 6;
+            ctx.fillStyle = "#222";
+            ctx.fillRect(barX, barY, barWidth, barHeight);
+            const percent = obs.durability / obs.maxDurability;
+            ctx.fillStyle = "#ffaa55";
+            ctx.fillRect(barX, barY, barWidth * percent, barHeight);
+        }
+        ctx.shadowBlur = 0;
+    }
+    
+    // 绘图
+    function drawBackground() {
+        const grad = ctx.createLinearGradient(0, 0, 0, CH);
+        grad.addColorStop(0, '#03051a');
+        grad.addColorStop(1, '#12162f');
+        ctx.fillStyle = grad;
+        ctx.fillRect(0, 0, CW, CH);
+        for (let s of stars) {
+            ctx.beginPath();
+            ctx.arc(s.x, s.y, s.radius, 0, Math.PI * 2);
+            ctx.fillStyle = `rgba(255,245,200,${s.alpha + Math.sin(Date.now() * 0.002 + s.x) * 0.2})`;
+            ctx.fill();
+        }
+        for (let cloud of cloudLayers) {
+            ctx.beginPath();
+            ctx.ellipse(cloud.x, cloud.y, cloud.radius, cloud.radius * 0.6, 0, 0, Math.PI * 2);
+            ctx.fillStyle = `rgba(140, 180, 255, ${cloud.alpha * 0.35})`;
+            ctx.fill();
+        }
+    }
+    
+    function drawObstacles() {
+        for (let obs of obstacles) {
+            ctx.save();
+            drawRealisticAsteroid(obs);
+            ctx.restore();
+        }
+    }
+    
+    function drawBullets() {
+        for (let b of bullets) {
+            ctx.beginPath();
+            ctx.arc(b.x, b.y, BULLET_RADIUS - 1, 0, Math.PI * 2);
+            ctx.fillStyle = '#ffff80';
+            ctx.shadowBlur = 8;
+            ctx.fill();
+            ctx.beginPath();
+            ctx.arc(b.x, b.y, BULLET_RADIUS - 2, 0, Math.PI * 2);
+            ctx.fillStyle = '#ffaa44';
+            ctx.fill();
+            ctx.shadowBlur = 0;
+        }
+    }
+    
+    function drawParticles() {
+        for (let p of particles) {
+            ctx.beginPath();
+            ctx.arc(p.x, p.y, p.size * (p.life / p.maxLife), 0, Math.PI * 2);
+            ctx.fillStyle = p.color;
+            ctx.fill();
+        }
+    }
+    
+    function drawAdvancedFighter(x, y, invincible) {
+        ctx.save();
+        if (invincible && (Math.floor(Date.now() / 50) % 3 < 1)) ctx.globalAlpha = 0.55;
+        ctx.shadowBlur = 10;
+        ctx.shadowColor = "#ffaa44";
+        ctx.beginPath();
+        ctx.moveTo(x, y - 18);
+        ctx.lineTo(x - 12, y - 2);
+        ctx.lineTo(x - 8, y + 6);
+        ctx.lineTo(x - 4, y + 2);
+        ctx.lineTo(x - 4, y + 12);
+        ctx.lineTo(x, y + 16);
+        ctx.lineTo(x + 4, y + 12);
+        ctx.lineTo(x + 4, y + 2);
+        ctx.lineTo(x + 8, y + 6);
+        ctx.lineTo(x + 12, y - 2);
+        ctx.closePath();
+        const grad = ctx.createLinearGradient(x - 6, y - 6, x + 6, y + 10);
+        grad.addColorStop(0, '#ffdd77');
+        grad.addColorStop(1, '#dd8822');
+        ctx.fillStyle = grad;
+        ctx.fill();
+        ctx.strokeStyle = '#fff3aa';
+        ctx.lineWidth = 1.5;
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.moveTo(x - 12, y - 2);
+        ctx.lineTo(x - 20, y + 2);
+        ctx.lineTo(x - 16, y + 8);
+        ctx.lineTo(x - 8, y + 6);
+        ctx.fillStyle = '#cc8844';
+        ctx.fill();
+        ctx.beginPath();
+        ctx.moveTo(x + 12, y - 2);
+        ctx.lineTo(x + 20, y + 2);
+        ctx.lineTo(x + 16, y + 8);
+        ctx.lineTo(x + 8, y + 6);
+        ctx.fill();
+        ctx.beginPath();
+        ctx.arc(x, y - 9, 4.5, 0, Math.PI * 2);
+        ctx.fillStyle = '#bbffff';
+        ctx.fill();
+        ctx.beginPath();
+        ctx.arc(x, y - 9, 2, 0, Math.PI * 2);
+        ctx.fillStyle = '#ffffff';
+        ctx.fill();
+        let flicker = Math.sin(Date.now() * 0.02) * 2;
+        for (let i = 0; i < 3; i++) {
+            ctx.beginPath();
+            ctx.moveTo(x - 4 + i * 2, y + 14);
+            ctx.lineTo(x + (i - 1) * 1.5, y + 20 + flicker);
+            ctx.lineTo(x + 4 - i * 1.2, y + 14);
+            ctx.fillStyle = `rgba(255, 100, 30, 0.9)`;
+            ctx.fill();
+        }
+        ctx.restore();
+    }
+    
+    function drawUItext() {
+        ctx.font = 'bold 24px "Orbitron"';
+        ctx.fillStyle = '#ffffdd';
+        ctx.shadowBlur = 4;
+        ctx.fillText(`⚡ ${score}`, 24, 58);
+        ctx.font = 'bold 18px monospace';
+        ctx.fillStyle = '#ffbb88';
+        ctx.fillText(`💀 ${killCount}`, 24, 96);
+        ctx.font = '12px monospace';
+        ctx.fillStyle = '#bbddff';
+        let speedDisplay = isNaN(currentGlobalSpeed) ? "3.4" : currentGlobalSpeed.toFixed(1);
+        ctx.fillText(`速: ${speedDisplay}`, CW - 90, 38);
+        if (invincibleFrames > 0) {
+            ctx.font = 'bold 16px monospace';
+            ctx.fillStyle = '#aaffdd';
+            ctx.fillText('✨ 护体无敌 ✨', CW - 140, 78);
+        }
+        if (shootCooldown > 0) {
+            ctx.fillStyle = '#ffaa66';
+            ctx.fillText('🔫 装填', CW - 70, 110);
+        }
+    }
+    
+    function restartGame() {
+        score = 0;
+        killCount = 0;
+        updateScoreUI();
+        obstacles = [];
+        bullets = [];
+        playerX = CW / 2;
+        invincibleFrames = 0;
+        gameActive = true;
+        shootCooldown = 0;
+        shootRequested = false;
+        spawnWaitFrames = 12;
+        currentGlobalSpeed = CONFIG.baseObstacleSpeed;
+        particles = [];
+        showMessage("🔄 重新升空！ 🚀", 1200);
+    }
+    
+    // 键盘控制：左右移动，空格设置请求标志，数字切换颜色
+    function keyDownHandler(e) {
+        const key = e.key;
+        const code = e.code;
+        // 左右箭头移动
+        if (key === 'ArrowLeft') {
+            leftPressed = true;
+            e.preventDefault();
+        } else if (key === 'ArrowRight') {
+            rightPressed = true;
+            e.preventDefault();
+        } else if (key === 'r' || key === 'R') {
+            restartGame();
+            e.preventDefault();
+        } else if (code === 'Space' || key === ' ') {
+            // 按下空格：设置发射请求标志
+            e.preventDefault();
+            shootRequested = true;
+        } else if (key >= '1' && key <= '9') {
+            // 数字键切换颜色
+            e.preventDefault();
+            const idx = parseInt(key) - 1;
+            if (idx >= 0 && idx < COLOR_PRESETS.length) {
+                currentColorIndex = idx;
+                applyColorPreset(currentColorIndex);
+            }
+        }
+        
+        // 激活音频
+        if (!isAudioActive && audioCtx === null) {
+            initAudio();
+            isAudioActive = true;
+            if (audioCtx.state === 'suspended') audioCtx.resume();
+            resumeBackgroundMusic();
+        } else if (audioCtx && audioCtx.state === 'suspended') {
+            audioCtx.resume();
+            isAudioActive = true;
+            resumeBackgroundMusic();
+        }
+    }
+    
+    function keyUpHandler(e) {
+        const key = e.key;
+        const code = e.code;
+        if (key === 'ArrowLeft') {
+            leftPressed = false;
+            e.preventDefault();
+        } else if (key === 'ArrowRight') {
+            rightPressed = false;
+            e.preventDefault();
+        } else if (code === 'Space' || key === ' ') {
+            // 松开空格：清除发射请求标志
+            e.preventDefault();
+            shootRequested = false;
+        }
+    }
+    
+    canvas.addEventListener('click', () => {
+        if (!isAudioActive && audioCtx === null) {
+            initAudio();
+            isAudioActive = true;
+            if (audioCtx.state === 'suspended') audioCtx.resume();
+            resumeBackgroundMusic();
+        } else if (audioCtx && audioCtx.state === 'suspended') {
+            audioCtx.resume();
+            isAudioActive = true;
+            resumeBackgroundMusic();
+        }
+    });
+    
+    window.addEventListener('keydown', keyDownHandler);
+    window.addEventListener('keyup', keyUpHandler);
+    document.getElementById('restartButton').addEventListener('click', () => {
+        restartGame();
+        if (!isAudioActive && audioCtx === null) {
+            initAudio();
+            isAudioActive = true;
+            if (audioCtx.state === 'suspended') audioCtx.resume();
+            resumeBackgroundMusic();
+        } else if (audioCtx && audioCtx.state === 'suspended') {
+            audioCtx.resume();
+            isAudioActive = true;
+            resumeBackgroundMusic();
+        }
+    });
+    
+    function initBackground() {
+        for (let i = 0; i < CONFIG.starCount; i++) {
+            stars.push({
+                x: Math.random() * CW,
+                y: Math.random() * CH,
+                radius: 1 + Math.random() * 2,
+                alpha: 0.5 + Math.random() * 0.5,
+                speedY: 0.6 + Math.random() * 1.4
+            });
+        }
+        for (let i = 0; i < CONFIG.cloudCount; i++) {
+            cloudLayers.push({
+                x: Math.random() * CW,
+                y: Math.random() * CH,
+                radius: 45 + Math.random() * 55,
+                alpha: 0.1 + Math.random() * 0.15,
+                speedY: 1 + Math.random() * 1.2
+            });
+        }
+    }
+    
+    initBackground();
+    restartGame();
+    spawnWaitFrames = 10;
+    applyColorPreset(0);
+    
+    function gameLoop() {
+        if (gameActive) {
+            updatePlayerMovement();
+            handleShootRequest();          // 每帧检查发射请求
+            updateBulletsAndDamage();
+            updateObstaclesMovement();
+            updateSpawner();
+            addEngineParticles();
+            updateParticles();
+            updateScenery();
+            if (invincibleFrames > 0) invincibleFrames--;
+            updateShootCooldown();
+            if (isAudioActive) updateEngineSoundByMovement();
+        } else {
+            updateParticles();
+            updateScenery();
+        }
+        drawBackground();
+        drawObstacles();
+        drawBullets();
+        drawAdvancedFighter(playerX, playerY, invincibleFrames > 0);
+        drawParticles();
+        drawUItext();
+        requestAnimationFrame(gameLoop);
+    }
+    gameLoop();
+</script>
+</body>
+</html>

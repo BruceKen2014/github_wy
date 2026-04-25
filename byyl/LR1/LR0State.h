@@ -21,15 +21,15 @@ struct StateAction
     StateAction(ActionType inType, int inTarget = -1) : type(inType), target({ inTarget }) {}
     StateAction(ActionType inType, const vector<int>& inTarget) : type(inType), target({inTarget}) {}
 };
-class LR0State
+class LR1State
 {
 public:
     inline static int ID = 0;
-    LR0State() { id = ID++; };
-    LR0State(const StateProduction& inStateProduction) :productions{ inStateProduction } {
+    LR1State() { id = ID++; };
+    LR1State(const LR1StateProduction& inStateProduction) :productions{ inStateProduction } {
         id = ID++;
     };
-    bool add_production(const StateProduction& production)
+    bool add_production(const LR1StateProduction& production)
     {
         // 如果生产已经存在于状态中，则不添加
         if (std::find(productions.begin(), productions.end(), production) != productions.end())
@@ -38,7 +38,7 @@ public:
         return true;
     }
     bool empty() const { return productions.empty(); }
-    bool operator == (const LR0State& other) const
+    bool operator == (const LR1State& other) const
     {
         if (productions.size() != other.productions.size())
             return false;
@@ -67,11 +67,53 @@ public:
     {
         std::cout << getFormatString();
     }
+	// 判断状态中是否存在可以规约的产生式
+    bool can_reduce() const
+    {
+        for (const auto& prod : productions)
+        {
+            if (prod.can_reduce())
+                return true;
+        }
+        return false;
+	}
+	// 获取状态中所有可以规约的产生式ID
+    std::vector<int> get_reduce_production_ids() const
+    {
+        std::vector<int> reduce_ids;
+        for (size_t i = 0; i < productions.size(); ++i)
+        {
+            if (productions[i].can_reduce())
+                reduce_ids.push_back(i);
+        }
+        return reduce_ids;
+	}
+	//当处理某个终结符的时候，获取状态中所有可以规约给定终结符的产生式ID
+    std::vector<int> get_reduce_production_ids(const Terminal& terminal) const
+    {
+        std::vector<int> reduce_ids;
+        for (size_t i = 0; i < productions.size(); ++i)
+        {
+            if (productions[i].can_reduce() && productions[i].lookahead.contains(terminal))
+                reduce_ids.push_back(i);
+        }
+        return reduce_ids;
+	}
+	// 判断状态中是否存在可以移进给定终结符的产生式
+	bool can_shift(const Terminal& terminal) const
+    {
+        for (const auto& prod : productions)
+        {
+            if (prod.dotPos < prod.right.count() && prod.right.at(prod.dotPos).is_terminal() && prod.right.at(prod.dotPos).terminal == terminal)
+                return true;
+        }
+        return false;
+    }
 
 
 public:
     int id = 0; // 状态ID，可以根据需要设置为唯一值
-    std::vector<StateProduction> productions;
+    std::vector<LR1StateProduction> productions;
     map<Terminal, StateAction> actionTable;
     map<NoTerminal, int> gotoTable;
 };

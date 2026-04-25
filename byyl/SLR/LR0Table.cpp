@@ -93,11 +93,11 @@ void LR0Table::build_LR0_table(const ProductionSet& inProductionSet)
 	const std::set<NoTerminal> allNoTerminals = productionSet.getAllNoTerminals();
 	while (!stateQueue.empty())
 	{
-		int front_id = stateQueue.front();
+		int current_id = stateQueue.front();
 		stateQueue.pop();
 		for (const Terminal& terminal : allTerminals)
 		{
-			LR0State& currentState = get_state(front_id);
+			LR0State& currentState = get_state(current_id);
 			LR0State next_state = GOTO(currentState, terminal, productionSet);
 			if (!next_state.empty())
 			{//如果GOTO得到的状态不空，那么就认为是一个有效的转移状态
@@ -142,7 +142,109 @@ void LR0Table::build_LR0_table(const ProductionSet& inProductionSet)
 		}
 		for (const NoTerminal& noTerminal : allNoTerminals)
 		{
-			LR0State& currentState = get_state(front_id);
+			LR0State& currentState = get_state(current_id);
+			LR0State next_state = GOTO(currentState, noTerminal, productionSet);
+			if (contains_state(next_state))
+			{
+				auto id = get_state_id(next_state);
+				currentState.gotoTable[noTerminal] = id;
+			}
+			else if (!next_state.empty())
+			{
+				currentState.gotoTable[noTerminal] = next_state.id;
+				if (!contains_state(next_state))
+				{
+					add_state(next_state);
+					stateQueue.push(next_state.id);
+				}
+			}
+		}
+	}
+}
+
+void LR0Table::build_SLR_table(const ProductionSet& inProductionSet)
+{
+	/*
+	SLR与LR0的区别在于，在LR0的基础上，SLR在构建action表时，对于规约动作，还需要判断当前输入的terminal是否在这个产生式的left部非终结符的follow集合里，如果在follow集合里，那么才认为这个terminal可以被规约掉，否则就认为这个terminal是一个错误输入。
+	这意味着我们在构建ACTION表的时候，只将属于产生式左部非终结符FOLLOW集合的终结符加入到规约动作中，而不是将所有终结符都加入到规约动作中，从而减少了LR0分析表中的冲突，使得更多的文法能够被SLR分析器接受。
+	*/
+	productionSet = inProductionSet;
+	reset();
+
+	LR0State initialState({ productionSet.at(0), 0 }); // 假设第一个产生式是 S' -> S$
+	closure(initialState, productionSet); //计算产生式闭包，加入状态集合
+
+	add_state(initialState);
+
+	std::queue<int> stateQueue;
+	stateQueue.push(initialState.id);
+
+	const std::set<Terminal> allTerminals = productionSet.getAllTerminals();
+	const std::set<NoTerminal> allNoTerminals = productionSet.getAllNoTerminals();
+	while (!stateQueue.empty())
+	{
+		int current_id = stateQueue.front();
+		stateQueue.pop();
+		for (const Terminal& terminal : allTerminals)
+		{
+			LR0State& currentState = get_state(current_id);
+
+			std::vector<int> reduce_production_ids = currentState.get_reduce_production_ids();
+			//计算可以真正规约的产生式ID
+			//只有遇到左部的FOLLOW集合里的terminal时，才认为这个terminal是可以被规约掉的
+			std::vector<int> target_reduce_ids;
+			for (int id : reduce_production_ids)
+			{
+				const auto& prod = currentState.productions[id];
+				if (productionSet.is_in_follow_set(prod.left(), terminal))
+					target_reduce_ids.push_back(id);
+			}
+
+
+			bool can_shift = currentState.can_shift(terminal);
+	
+			if (target_reduce_ids.size() > 0)
+			{//可以真正规约
+				if (can_shift)
+				{
+					//如果既可以真正规约又可以移进，那么就认为发生了冲突，记录冲突信息
+					cout << "conflict happens, state id: " << currentState.id << " meet terminal: " << terminal.getFormatString() << endl;
+				}
+				else
+				{
+					//能规约，但是不能移进，那么就认为这个terminal是可以被规约掉的，
+					currentState.actionTable[terminal] = { ActionType::Reduce, target_reduce_ids };
+				}
+			}
+			else
+			{//不能真正规约，那么就需要判断是否能移进，如果能移进，那么就认为是一个有效的转移状态，如果不能移进，那么就认为这个terminal是一个错误输入，记录错误状态
+				if (can_shift)
+				{
+					//如果能移进，那么就认为是一个有效的转移状态
+					//说明当前状态可以吃掉这个terminal，从而转移到下一个状态
+					LR0State next_state = GOTO(currentState, terminal, productionSet);
+					if (contains_state(next_state))
+					{//如果已经包含这个状态了，那么就直接在action表里记录这个转移状态的id
+						auto id = get_state_id(next_state);
+						currentState.actionTable[terminal] = { ActionType::Shift,id };
+					}
+					else
+					{//如果不包含这个状态，那么就把这个状态加入状态集合，并且在action表里记录这个转移状态的id
+						currentState.actionTable[terminal] = { ActionType::Shift,next_state.id };
+						add_state(next_state);
+						stateQueue.push(next_state.id);
+					}
+				}
+				else
+				{
+					//如果不能移进，也不能规约，那么就认为这个terminal是一个错误输入，记录错误状态
+					currentState.actionTable[terminal] = { ActionType::Error };
+				}
+			}
+		}
+		for (const NoTerminal& noTerminal : allNoTerminals)
+		{
+			LR0State& currentState = get_state(current_id);
 			LR0State next_state = GOTO(currentState, noTerminal, productionSet);
 			if (contains_state(next_state))
 			{
